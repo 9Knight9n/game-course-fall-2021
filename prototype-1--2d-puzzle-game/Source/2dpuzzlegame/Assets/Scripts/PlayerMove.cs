@@ -1,12 +1,18 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerMove : MonoBehaviour
 {
+    private Animator anim;
+    private int MAX_KEYS;
+    private bool onExitDoor;
+    private GameObject _collectableObject;
+    public int collectedKeys = 0;
     
-    public float factor = 0.01f;
-    public float jumpAmount = 0.5f;
+    public float factor;
+    public float jumpAmount ;
 
     public SpriteRenderer spriteRenderer;
     public Rigidbody2D rb;
@@ -19,8 +25,9 @@ public class PlayerMove : MonoBehaviour
     private Vector3 moveVector;
     void Start()
     {
+        anim = GetComponent<Animator>();
         cloneMoves = clones.GetComponentsInChildren<CloneMove>();
-
+        MAX_KEYS = GameObject.FindGameObjectsWithTag("Key").Length;
         canJump = true;
         moveVector = new Vector3(1 * factor, 0, 0);
     }
@@ -34,7 +41,7 @@ public class PlayerMove : MonoBehaviour
             MoveClones(moveVector, true);
 
             spriteRenderer.flipX = false;
-
+            
         }
 
         if (Input.GetKey(KeyCode.A))
@@ -44,6 +51,17 @@ public class PlayerMove : MonoBehaviour
             MoveClones(moveVector, false);
 
             spriteRenderer.flipX = true;
+            
+        }
+
+        if (Input.GetKeyUp(KeyCode.A) || Input.GetKeyUp(KeyCode.D))
+        {
+            anim.SetBool("isWalking",false);
+        }
+        
+        if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.D))
+        {
+            anim.SetBool("isWalking",true);
         }
 
         if (Input.GetKeyDown(KeyCode.Space) && canJump)
@@ -59,6 +77,21 @@ public class PlayerMove : MonoBehaviour
             Destroy(this.gameObject);
         }
 
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            if (_collectableObject != null)
+            {
+                collectedKeys++;
+                _collectableObject.SetActive(false);
+                EventSystemCustom.current.onKeyCollect.Invoke(collectedKeys);
+            }
+            else if(onExitDoor)
+            {
+                EventSystemCustom.current.onEndGame.Invoke("You Win");
+                
+            }
+            
+        }
 
         // This is too dirty. We must decalare/calculate the bounds in another way. 
         /*if (transform.position.x < -0.55f) 
@@ -76,12 +109,31 @@ public class PlayerMove : MonoBehaviour
         if (collision.gameObject.CompareTag(TagNames.DeathZone.ToString()))
         {
             Debug.Log("DEATH ZONE");
+            EventSystemCustom.current.onEndGame.Invoke("You Lose,\nNoob!");
         }
         
-        if (collision.gameObject.CompareTag(TagNames.CollectableItem.ToString()))
+        else if (collision.gameObject.CompareTag(TagNames.CollectableItem.ToString()))
         {
             collision.gameObject.SetActive(false);
             Debug.Log("POTION!");
+        }
+        
+        else if (collision.gameObject.CompareTag(TagNames.Key.ToString()))
+        {
+            // collision.gameObject.SetActive(false);
+            Debug.Log("KEY!");
+            _collectableObject = collision.gameObject;
+            EventSystemCustom.current.onHintChange.Invoke("Press E to collect");
+        }
+    }
+
+    private void OnTriggerExit2D(Collider2D collision)
+    {
+        if (collision.gameObject.CompareTag(TagNames.Key.ToString()))
+        {
+            // collision.gameObject.SetActive(false);
+            _collectableObject = null;
+            EventSystemCustom.current.onHintChange.Invoke("");
         }
     }
 
@@ -95,11 +147,17 @@ public class PlayerMove : MonoBehaviour
 
         if (collision.gameObject.CompareTag(TagNames.ExitDoor.ToString()))
         {
-            Debug.Log("exit door");
+            if (collectedKeys == MAX_KEYS)
+            {
+                onExitDoor = true;
+                Debug.Log("exit door");
+                EventSystemCustom.current.onHintChange.Invoke("Press E to exit");
+            }
+            else
+            {
+                EventSystemCustom.current.onHintChange.Invoke("You need all Keys");
+            }
         }
-
-       
-
     }
 
     private void OnCollisionExit2D(Collision2D collision)
@@ -108,6 +166,11 @@ public class PlayerMove : MonoBehaviour
         {
             Debug.LogWarning("sticky no more bruh");
             canJump = true;
+        }
+        else if (collision.gameObject.CompareTag(TagNames.ExitDoor.ToString()))
+        {
+            onExitDoor = false;
+            EventSystemCustom.current.onHintChange.Invoke("");
         }
     }
 

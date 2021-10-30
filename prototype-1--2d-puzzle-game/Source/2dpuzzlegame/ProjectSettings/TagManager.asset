@@ -8,6 +8,9 @@ TagManager:
   - StickyPlatform
   - ExitDoor
   - CollectableItem
+  - Key
+  - KeyTele
+  - DoorTeleS
   layers:
   - Default
   - TransparentFX
